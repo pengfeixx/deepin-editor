@@ -2126,7 +2126,7 @@
                             "key": "theme",
                             "hide": true,
                             "reset": true,
-                            "default": "/usr/share/deepin-editor/themes/deepin.theme"
+                            "default": "/opt/apps/org.deepin.editor/files/share/deepin-editor/themes/deepin.theme"
                         },
                         {
                             "key": "bookmark",

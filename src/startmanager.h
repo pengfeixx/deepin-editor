@@ -11,6 +11,7 @@
 #include "dbus/com_deepin_dde_daemon_dock.h"
 #include "dbus/com_deepin_dde_daemon_dock_entry.h"
 #include <QObject>
+#include <QJsonArray>
 
 using Dock          = com::deepin::dde::daemon::Dock;
 using Entry         = com::deepin::dde::daemon::Entry;
@@ -69,6 +70,11 @@ public:
     // 查找文件对应的书签记录
     QList<int> findBookmark(const QString &localPath);
 
+    // 主动更新记录颜色标记信息
+    void recordColorMark(const QString &localPath, const QJsonArray &marks);
+    // 查找文件对应的颜色标记记录
+    QJsonArray findColorMark(const QString &localPath);
+
     // 延迟释放堆内存
     void delayMallocTrim();
 
@@ -105,6 +111,10 @@ private:
     void initBookmark();
     // 保存书签信息
     void saveBookmark();
+    // 初始化颜色标记信息
+    void initColorMark();
+    // 保存颜色标记信息
+    void saveColorMark();
 
 private:
     static StartManager *m_instance;
@@ -119,6 +129,7 @@ private:
     QScopedPointer<Entry> m_pEntry;
     QStringList m_qlistTemFile;                 ///< 备份信息列表
     QHash<QString, QList<int>> m_bookmarkTable; ///< 书签标记信息表
+    QHash<QString, QJsonArray> m_colorMarkTable; ///< 颜色标记信息表
     QTimer *m_pTimer;
     QBasicTimer m_DelayTimer;   ///< 延迟备份定时器
     QString m_blankFileDir;     ///< 新建文件目录

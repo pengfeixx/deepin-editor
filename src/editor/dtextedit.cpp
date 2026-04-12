@@ -5689,6 +5689,131 @@ void TextEdit::setBookMarkList(QList<int> bookMarkList)
     qDebug() << "Set bookmark list completed";
 }
 
+QJsonArray TextEdit::getMarkOperationsForSave()
+{
+    qDebug() << "Get mark operations for save";
+    QJsonArray marksArray;
+
+    qWarning() << "[ColorMark] [1.Export] getMarkOperationsForSave called, m_markOperations count:" << m_markOperations.size();
+
+    QTextDocument *doc = document();
+    for (const auto &pair : m_markOperations) {
+        const MarkOperation &op = pair.first;
+        qint64 timestamp = pair.second;
+
+        QJsonObject markObj;
+        markObj["type"] = static_cast<int>(op.type);
+        markObj["color"] = op.color;
+        markObj["t"] = timestamp;
+
+        if (op.type == MarkOnce || op.type == MarkLine) {
+            int start = op.cursor.selectionStart();
+            int end = op.cursor.selectionEnd();
+
+            QTextBlock startBlock = doc->findBlock(start);
+            QTextBlock endBlock = doc->findBlock(end);
+
+            int startLine = startBlock.blockNumber();
+            int startCol = start - startBlock.position();
+            int endLine = endBlock.blockNumber();
+            int endCol = end - endBlock.position();
+
+            markObj["sl"] = startLine;
+            markObj["sc"] = startCol;
+            markObj["el"] = endLine;
+            markObj["ec"] = endCol;
+
+            qWarning() << "[ColorMark] [1.Export]   MarkOnce/MarkLine: color=" << op.color
+                       << "line" << startLine << "col" << startCol << "-> line" << endLine << "col" << endCol;
+        } else if (op.type == MarkAllMatch) {
+            markObj["matchText"] = op.matchText;
+            qWarning() << "[ColorMark] [1.Export]   MarkAllMatch: color=" << op.color << "matchText=" << op.matchText;
+        } else {
+            qWarning() << "[ColorMark] [1.Export]   MarkAll: color=" << op.color;
+        }
+        // MarkAll: 仅存 type + color + timestamp
+
+        marksArray.append(markObj);
+    }
+
+    qWarning() << "[ColorMark] [1.Export] getMarkOperationsForSave completed, exported count:" << marksArray.size()
+               << "json:" << QJsonDocument(marksArray).toJson(QJsonDocument::Compact);
+    return marksArray;
+}
+
+void TextEdit::restoreMarkOperations(const QJsonArray &marks)
+{
+    qWarning() << "[ColorMark] [5.Restore] restoreMarkOperations called, input marks count:" << marks.size()
+               << "json:" << QJsonDocument(marks).toJson(QJsonDocument::Compact);
+    if (marks.isEmpty()) {
+        qWarning() << "[ColorMark] [5.Restore] No marks to restore, marks is empty";
+        return;
+    }
+
+    QTextDocument *doc = document();
+    QList<QPair<MarkOperation, qint64>> restoredMarks;
+
+    for (const QJsonValue &val : marks) {
+        QJsonObject obj = val.toObject();
+
+        MarkOperation op;
+        op.type = static_cast<MarkOperationType>(obj["type"].toInt());
+        op.color = obj["color"].toString();
+
+        qint64 timestamp = static_cast<qint64>(obj["t"].toDouble());
+
+        if (op.type == MarkOnce || op.type == MarkLine) {
+            int startLine = obj["sl"].toInt();
+            int startCol = obj["sc"].toInt();
+            int endLine = obj["el"].toInt();
+            int endCol = obj["ec"].toInt();
+
+            qWarning() << "[ColorMark] [5.Restore]   MarkOnce/MarkLine: color=" << op.color
+                       << "line" << startLine << "col" << startCol << "-> line" << endLine << "col" << endCol;
+
+            QTextBlock startBlock = doc->findBlockByNumber(startLine);
+            QTextBlock endBlock = doc->findBlockByNumber(endLine);
+
+            if (!startBlock.isValid() || !endBlock.isValid()) {
+                qWarning() << "[ColorMark] [5.Restore]   SKIP: invalid block, startLine:" << startLine << "endLine:" << endLine
+                           << "doc blockCount:" << doc->blockCount();
+                continue;
+            }
+
+            int startPos = startBlock.position() + qMin(startCol, startBlock.length() - 1);
+            int endPos = endBlock.position() + qMin(endCol, endBlock.length() - 1);
+
+            if (startPos >= endPos) {
+                qWarning() << "[ColorMark] [5.Restore]   SKIP: invalid range, startPos:" << startPos << "endPos:" << endPos;
+                continue;
+            }
+
+            QTextCursor cursor(doc);
+            cursor.setPosition(startPos);
+            cursor.setPosition(endPos, QTextCursor::KeepAnchor);
+            op.cursor = cursor;
+
+        } else if (op.type == MarkAllMatch) {
+            op.matchText = obj["matchText"].toString();
+            qWarning() << "[ColorMark] [5.Restore]   MarkAllMatch: color=" << op.color << "matchText=" << op.matchText;
+        } else {
+            qWarning() << "[ColorMark] [5.Restore]   MarkAll: color=" << op.color;
+        }
+        // MarkAll: 无需额外数据
+
+        restoredMarks.append(qMakePair(op, timestamp));
+    }
+
+    qWarning() << "[ColorMark] [5.Restore] restoredMarks count:" << restoredMarks.size()
+               << "calling manualUpdateAllMark";
+
+    if (!restoredMarks.isEmpty()) {
+        manualUpdateAllMark(restoredMarks);
+    }
+
+    qWarning() << "[ColorMark] [5.Restore] restoreMarkOperations completed, m_markOperations count:" << m_markOperations.size();
+}
+
 void TextEdit::updateSaveIndex()
 {
     qDebug() << "Update save index";

@@ -66,10 +66,16 @@ StartManager::StartManager(QObject *parent)
         QDir().mkpath(m_backupDir);
     }
 
-    m_qlistTemFile = Settings::instance()->settings->option("advance.editor.browsing_history_temfile")->value().toStringList();
+    if (auto opt = Settings::instance()->settings->option("advance.editor.browsing_history_temfile")) {
+        m_qlistTemFile = opt->value().toStringList();
+    }
     // 初始化书签信息记录表
     initBookmark();
     qDebug() << "inited bookmark";
+
+    // 初始化颜色标记信息记录表
+    initColorMark();
+    qDebug() << "inited colormark";
 
     //按时间自动备份（5分钟）
     m_pTimer = new QTimer;
@@ -173,7 +179,9 @@ void StartManager::autoBackupFile()
     QString filePath, localPath, curPos;
     QFileInfo fileInfo;
     m_qlistTemFile.clear();
-    listBackupInfo = Settings::instance()->settings->option("advance.editor.browsing_history_temfile")->value().toStringList();
+    if (auto opt = Settings::instance()->settings->option("advance.editor.browsing_history_temfile")) {
+        listBackupInfo = opt->value().toStringList();
+    }
 
     //记录所有的文件信息
     for (int var = 0; var < m_windows.count(); ++var) {
@@ -227,6 +235,18 @@ void StartManager::autoBackupFile()
                 m_bookmarkTable.remove(localPath);
             }
 
+            //记录颜色标记
+            QJsonArray colorMarks = wrapper->textEditor()->getMarkOperationsForSave();
+            qWarning() << "[ColorMark] [2.AutoBackup] autoBackupFile, path:" << localPath
+                       << "exported marks count:" << colorMarks.size();
+            if (!colorMarks.isEmpty()) {
+                qDebug() << "File has colormark, record it";
+                m_colorMarkTable.insert(localPath, colorMarks);
+            } else {
+                qDebug() << "File has no colormark, remove it";
+                m_colorMarkTable.remove(localPath);
+            }
+
             //记录活动页
             if (m_windows.value(var)->isActiveWindow()) {
                 if (wrapper == m_windows.value(var)->currentWrapper()) {
@@ -262,9 +282,13 @@ void StartManager::autoBackupFile()
 
     //将json串列表写入配置文件
     qInfo() << __func__ << "history file counts:" << m_qlistTemFile.size();
-    Settings::instance()->settings->option("advance.editor.browsing_history_temfile")->setValue(m_qlistTemFile);
+    if (auto opt = Settings::instance()->settings->option("advance.editor.browsing_history_temfile")) {
+        opt->setValue(m_qlistTemFile);
+    }
     // 备份书签信息
     saveBookmark();
+    // 备份颜色标记信息
+    saveColorMark();
     qDebug() << "Exit autoBackupFile";
 }
 
@@ -748,6 +772,22 @@ void StartManager::slotCloseWindow()
     Window *pWindow = static_cast<Window *>(sender());
     int windowIndex = m_windows.indexOf(pWindow);
 
+    // 在窗口从列表移除之前，收集该窗口所有编辑器的颜色标记信息
+    if (pWindow) {
+        QMap<QString, EditWrapper *> wrappers = pWindow->getWrappers();
+        for (EditWrapper *wrapper : wrappers) {
+            QJsonArray colorMarks = wrapper->textEditor()->getMarkOperationsForSave();
+            QString localPath = wrapper->textEditor()->getTruePath();
+            if (!colorMarks.isEmpty()) {
+                qWarning() << "[ColorMark] [2.CloseWindow] collecting marks before save, path:" << localPath
+                           << "marks count:" << colorMarks.size();
+                m_colorMarkTable.insert(localPath, colorMarks);
+            } else {
+                qWarning() << "[ColorMark] [2.CloseWindow] no marks for path:" << localPath;
+            }
+        }
+    }
+
     if (windowIndex >= 0) {
         qDebug() << "Window closed, index:" << windowIndex;
         m_windows.takeAt(windowIndex);
@@ -757,6 +797,8 @@ void StartManager::slotCloseWindow()
         qDebug() << "No remaining windows, saving bookmark";
         // 保存书签信息
         saveBookmark();
+        // 保存颜色标记信息
+        saveColorMark();
 
         QDir path = QDir::currentPath();
         if (!path.exists()) {
@@ -1072,8 +1114,127 @@ void StartManager::saveBookmark()
     }
 
     // 将书签信息保存至配置文件
-    Settings::instance()->settings->option(s_bookMarkKey)->setValue(recordInfo);
+    if (auto opt = Settings::instance()->settings->option(s_bookMarkKey)) {
+        opt->setValue(recordInfo);
+    }
     qDebug() << "Exit saveBookmark";
+}
+
+/**
+ * @brief 从配置文件中获取全局的颜色标记信息，包括已关闭的所有文件颜色标记，
+ *      会遍历每个颜色标记记录并判断文件是否存在，若文件被删除或移动，则不再记录对应的颜色标记信息。
+ */
+void StartManager::initColorMark()
+{
+    qDebug() << "Enter initColorMark";
+    static const QString s_colorMarkKey = "advance.editor.colormark";
+
+    qWarning() << "[ColorMark] [4.Load] initColorMark called, checking option existence...";
+    auto opt = Settings::instance()->settings->option(s_colorMarkKey);
+    qWarning() << "[ColorMark] [4.Load] option ptr:" << (opt ? "VALID" : "NULL");
+
+    QStringList colorMarkInfoList = Settings::instance()->settings->value(s_colorMarkKey).toStringList();
+    qWarning() << "[ColorMark] [4.Load] config read count:" << colorMarkInfoList.size();
+
+    for (const QString &colorMarkInfo : colorMarkInfoList) {
+        QJsonParseError readError;
+        QJsonDocument doc = QJsonDocument::fromJson(colorMarkInfo.toUtf8(), &readError);
+        if (QJsonParseError::NoError == readError.error
+                && !doc.isNull()) {
+            QJsonObject obj = doc.object();
+            QString filePath = obj.value("localPath").toString();
+            QJsonArray marks = obj.value("marks").toArray();
+
+            qWarning() << "[ColorMark] [4.Load]   file:" << filePath
+                       << "exists:" << QFileInfo::exists(filePath)
+                       << "marks count:" << marks.size();
+
+            // 判断文件是否仍存在
+            if (!filePath.isEmpty() && QFileInfo::exists(filePath)) {
+                if (!marks.isEmpty()) {
+                    m_colorMarkTable.insert(filePath, marks);
+                    qWarning() << "[ColorMark] [4.Load]   -> inserted into m_colorMarkTable";
+                }
+            } else {
+                qWarning() << "[ColorMark] [4.Load]   -> SKIPPED, file not exist or path empty";
+            }
+        } else {
+            qWarning() << "[ColorMark] [4.Load]   -> JSON parse error:" << readError.errorString();
+        }
+    }
+    qWarning() << "[ColorMark] [4.Load] initColorMark completed, m_colorMarkTable size:" << m_colorMarkTable.size();
+    qDebug() << "Exit initColorMark";
+}
+
+/**
+ * @brief 将当前记录的所有文件的颜色标记信息转换为Json数据列表记录到配置信息中，
+ *      被删除或移动文件的颜色标记将被销毁。
+ */
+void StartManager::saveColorMark()
+{
+    qDebug() << "Enter saveColorMark";
+    static const QString s_colorMarkKey = "advance.editor.colormark";
+
+    qWarning() << "[ColorMark] [3.Persist] saveColorMark called, m_colorMarkTable size:" << m_colorMarkTable.size();
+
+    QStringList recordInfo;
+    for (auto itr = m_colorMarkTable.begin(); itr != m_colorMarkTable.end();) {
+        if (!QFileInfo::exists(itr.key())
+                || itr.value().isEmpty()) {
+            // 文件不存在则销毁记录
+            qWarning() << "[ColorMark] [3.Persist]   SKIP/erase:" << itr.key()
+                       << "fileExists:" << QFileInfo::exists(itr.key())
+                       << "marksEmpty:" << itr.value().isEmpty();
+            itr = m_colorMarkTable.erase(itr);
+        } else {
+            QJsonObject obj;
+            obj.insert("localPath", itr.key());
+            obj.insert("marks", itr.value());
+
+            QJsonDocument doc(obj);
+            recordInfo.append(doc.toJson(QJsonDocument::Compact));
+
+            qWarning() << "[ColorMark] [3.Persist]   SAVE:" << itr.key()
+                       << "marks count:" << itr.value().size();
+            ++itr;
+        }
+    }
+
+    qWarning() << "[ColorMark] [3.Persist] total records to write:" << recordInfo.size();
+
+    auto opt = Settings::instance()->settings->option(s_colorMarkKey);
+    qWarning() << "[ColorMark] [3.Persist] option ptr:" << (opt ? "VALID" : "NULL");
+    if (opt) {
+        opt->setValue(recordInfo);
+        qWarning() << "[ColorMark] [3.Persist] setValue called successfully";
+    } else {
+        qWarning() << "[ColorMark] [3.Persist] SKIP setValue, option is NULL! key:" << s_colorMarkKey;
+    }
+    qDebug() << "Exit saveColorMark";
+}
+
+/**
+ * @brief 主动更新记录颜色标记信息
+ * @param localPath 文件路径
+ * @param marks     颜色标记信息
+ */
+void StartManager::recordColorMark(const QString &localPath, const QJsonArray &marks)
+{
+    qWarning() << "[ColorMark] [2.Record] recordColorMark called, path:" << localPath
+               << "marks count:" << marks.size();
+    m_colorMarkTable.insert(localPath, marks);
+    qWarning() << "[ColorMark] [2.Record] m_colorMarkTable size after insert:" << m_colorMarkTable.size();
+}
+
+/**
+ * @return 返回文件 \a localPath 的颜色标记记录
+ */
+QJsonArray StartManager::findColorMark(const QString &localPath)
+{
+    QJsonArray result = m_colorMarkTable.value(localPath);
+    qWarning() << "[ColorMark] [4b.Find] findColorMark called, path:" << localPath
+               << "found:" << !result.isEmpty() << "marks count:" << result.size();
+    return result;
 }
 
 void StartManager::slotCheckUnsaveTab()

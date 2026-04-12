@@ -709,6 +709,12 @@ void Window::addTab(const QString &filepath, bool activeTab)
                 // 查找文件是否存在书签
                 auto bookmarkInfo = StartManager::instance()->findBookmark(filepath);
                 wrapper->textEditor()->setBookMarkList(bookmarkInfo);
+
+                // 查找文件是否存在颜色标记
+                auto colorMarkInfo = StartManager::instance()->findColorMark(filepath);
+                qWarning() << "[ColorMark] [5.Restore] addTab, path:" << filepath
+                           << "found marks count:" << colorMarkInfo.size();
+                wrapper->textEditor()->restoreMarkOperations(colorMarkInfo);
             }
             // Activate window.
             activateWindow();
@@ -895,6 +901,17 @@ bool Window::closeTab(const QString &filePath)
         qDebug() << "Saving bookmarks for file:" << bookmarkInfo;
         QString localPath = wrapper->textEditor()->getTruePath();
         StartManager::instance()->recordBookmark(localPath, bookmarkInfo);
+    }
+
+    // 关闭标签页前，记录全局的颜色标记信息
+    QJsonArray colorMarkInfo = wrapper->textEditor()->getMarkOperationsForSave();
+    qWarning() << "[ColorMark] [2.CloseTab] closeTab, exported marks count:" << colorMarkInfo.size();
+    if (!colorMarkInfo.isEmpty()) {
+        QString localPath = wrapper->textEditor()->getTruePath();
+        qWarning() << "[ColorMark] [2.CloseTab] recording colormark for path:" << localPath;
+        StartManager::instance()->recordColorMark(localPath, colorMarkInfo);
+    } else {
+        qWarning() << "[ColorMark] [2.CloseTab] no colormarks to save";
     }
 
     if (isDraftFile) {
@@ -3023,6 +3040,12 @@ void Window::addTemFileTab(const QString &qstrPath, const QString &qstrName, con
     // 查找文件是否存在书签，临时文件同样可标记书签
     auto bookmarkInfo = StartManager::instance()->findBookmark(qstrTruePath);
     wrapper->textEditor()->setBookMarkList(bookmarkInfo);
+
+    // 查找文件是否存在颜色标记
+    auto colorMarkInfo = StartManager::instance()->findColorMark(qstrTruePath);
+    qWarning() << "[ColorMark] [5.Restore] addTemFileTab, path:" << qstrTruePath
+               << "found marks count:" << colorMarkInfo.size();
+    wrapper->textEditor()->restoreMarkOperations(colorMarkInfo);
 
     //set m_tModifiedDateTime in wrapper again.
     if (bIsTemFile && !lastModifiedTime.isEmpty()) {

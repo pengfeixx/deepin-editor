@@ -17,6 +17,7 @@
 #include "deletetextundocommand.h"
 #include "../widgets/bottombar.h"
 #include <QUndoStack>
+#include <QJsonArray>
 
 #include <KSyntaxHighlighting/Definition>
 #include <KSyntaxHighlighting/SyntaxHighlighter>
@@ -455,6 +456,18 @@ public:
      * @param bookMarkList 书签列表
      */
     void setBookMarkList(QList<int> bookMarkList);
+
+    /**
+     * @brief getMarkOperationsForSave 导出颜色标记信息用于持久化保存
+     * @return JSON 数组，包含所有颜色标记的序列化数据
+     */
+    QJsonArray getMarkOperationsForSave();
+
+    /**
+     * @brief restoreMarkOperations 从持久化数据恢复颜色标记
+     * @param marks JSON 数组，包含颜色标记的序列化数据
+     */
+    void restoreMarkOperations(const QJsonArray &marks);
 
     /**
      * 更新上次保存时的撤销回收栈的索引值
