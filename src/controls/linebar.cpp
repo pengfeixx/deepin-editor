@@ -6,6 +6,7 @@
 #include "../common/utils.h"
 
 #include <DGuiApplicationHelper>
+#include <DFontSizeManager>
 
 #include <QDebug>
 
@@ -33,6 +34,10 @@ LineBar::LineBar(DLineEdit *parent)
 
     // label 和清除按钮直接 parent 到内嵌 lineEdit，覆盖在输入框内部
     m_matchCountLabel = new QLabel(lineEdit());
+    int fontsize = DFontSizeManager::instance()->fontPixelSize(DFontSizeManager::T11);
+    QFont labelFont = m_matchCountLabel->font();
+    labelFont.setPixelSize(fontsize);
+    m_matchCountLabel->setFont(labelFont);
     m_matchCountLabel->hide();
 
     m_clearButton = new DIconButton(QStyle::SP_LineEditClearButton, lineEdit());
