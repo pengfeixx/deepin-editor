@@ -212,6 +212,7 @@ public:
     bool updateKeywordSelections(QString keyword, QTextCharFormat charFormat, QList<QTextEdit::ExtraSelection> &listSelection);
     QList<int> scanAllMatchPositions(const QString &keyword, Qt::CaseSensitivity caseFlag = Qt::CaseInsensitive) const;
     int findCurrentMatchIndex() const;
+    void invalidateMatchCountCache();
     bool updateKeywordSelectionsInView(QString keyword, QTextCharFormat charFormat, QList<QTextEdit::ExtraSelection> *listSelection,
                                        Qt::CaseSensitivity caseFlag = Qt::CaseInsensitive);
     bool searchKeywordSeletion(QString keyword, QTextCursor cursor, bool findNext,
@@ -593,7 +594,6 @@ private:
     void setComment();
     void removeComment();
     void updateMatchCount(const QString &keyword, Qt::CaseSensitivity caseFlag);
-    void invalidateMatchCountCache();
 
     //去除"*{*" "*}*" "*{*}*"跳过当做普通文本处理不折叠　梁卫东２０２０－０９－０１　１７：１６：４１
     bool blockContainStrBrackets(int line);
