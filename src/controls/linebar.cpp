@@ -14,9 +14,7 @@ const int s_nLineBarHeight = 36;
 const int s_nLineBarHeightCompact = 24;
 
 // 计数 label 与自绘清除按钮的布局参数（像素）
-// 清除按钮尺寸对齐 QLineEdit 内置清除按钮（QLineEditIconButton 22x18），flat 去掉圆形背景
-const int s_nClearButtonWidth = 22;
-const int s_nClearButtonHeight = 18;
+const int s_nClearButtonSize = 16;     // 自绘清除按钮尺寸
 const int s_nLabelButtonSpacing = 6;   // label 与清除按钮之间的间距
 const int s_nRightMargin = 6;          // 清除按钮右边缘距输入框右边缘的间距
 
@@ -38,9 +36,8 @@ LineBar::LineBar(DLineEdit *parent)
     m_matchCountLabel->hide();
 
     m_clearButton = new DIconButton(QStyle::SP_LineEditClearButton, lineEdit());
-    m_clearButton->setFixedSize(s_nClearButtonWidth, s_nClearButtonHeight);
-    m_clearButton->setIconSize(QSize(s_nClearButtonWidth, s_nClearButtonHeight));
-    m_clearButton->setFlat(true);
+    m_clearButton->setFixedSize(s_nClearButtonSize, s_nClearButtonSize);
+    m_clearButton->setIconSize(QSize(s_nClearButtonSize, s_nClearButtonSize));
     m_clearButton->setFocusPolicy(Qt::NoFocus);
     m_clearButton->hide();
 
