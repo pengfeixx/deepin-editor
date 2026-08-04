@@ -220,3 +220,32 @@ TEST_F(test_findbar, getCurrentSearchText)
 
     findBar->deleteLater();
 }
+
+//slotUpdateMatchCount 转发到内部 m_editLine
+TEST_F(test_findbar, slotUpdateMatchCount_Forward)
+{
+    FindBar *findBar = new FindBar();
+    findBar->m_editLine->m_matchCountLabel->hide();
+
+    findBar->slotUpdateMatchCount(3, 7);
+
+    EXPECT_EQ(findBar->m_editLine->m_matchCountLabel->text().toStdString(), "第3/7项");
+    // Visibility adapted for headless test env: isVisible() is unreliable; use isHidden() (see Task 3 lesson)
+    EXPECT_FALSE(findBar->m_editLine->m_matchCountLabel->isHidden());
+
+    findBar->deleteLater();
+}
+
+//slotUpdateMatchCount (0,0) 隐藏
+TEST_F(test_findbar, slotUpdateMatchCount_ZeroHide)
+{
+    FindBar *findBar = new FindBar();
+    findBar->m_editLine->m_matchCountLabel->show();
+
+    findBar->slotUpdateMatchCount(0, 0);
+
+    // Visibility adapted for headless test env: isVisible() is unreliable; use isHidden() (see Task 3 lesson)
+    EXPECT_TRUE(findBar->m_editLine->m_matchCountLabel->isHidden());
+
+    findBar->deleteLater();
+}
