@@ -32,12 +32,15 @@
 
 ## 3. 方案
 
-采用 **方案 A：`QLineEdit::addAction` + `QWidgetAction`**。
-- 计数 label 包裹在 `QWidgetAction` 中，通过 `QLineEdit::addAction(action, QLineEdit::TrailingPosition)` 加入 `DLineEdit` 内嵌 `QLineEdit` 的右侧
-- Qt 原生机制下，自定义 trailing action 排在内置清除按钮左侧
-- 6px 间距通过布局实现（不使用 stylesheet）：label 放进一个容器 widget，容器内 `QHBoxLayout`（contentsMargins 为 0，spacing 为 0）依次添加 label 和 `addSpacing(6)` 的 spacer；容器作为 QWidgetAction 的 defaultWidget 加入 QLineEdit TrailingPosition。容器右边缘紧贴清除按钮，label 右边缘距清除按钮左侧 6px。原因：`QLineEdit::addAction` 把 action widget 紧贴放置，无 action 间距 API，stylesheet margin 在 QLineEdit 内部布局中也不可靠；用容器内 spacer 是唯一能精确控制 label 右边缘到清除按钮距离的布局方式。
+采用 **方案 B：自绘清除按钮 + DLineEdit::setRightWidgets**（方案 A 在 Qt6 下被证伪后切换）。
 
-备选方案 B（禁用内置清除按钮自定义右侧组合）和方案 C（label 放到 FindBar 主布局输入框外）已否选：前者改动大、回归风险高；后者不满足"输入框内部"诉求。
+**方案 A 失败原因（实测）**：Qt6 下 `QLineEdit::addAction(TrailingPosition)` 把自定义 action 放在内置清除按钮**右侧**（不是文档假设的左侧）；`DLineEdit::setRightWidgets` 同样把自定义 widget 放在内置清除按钮右侧。两种 API 都无法让自定义 widget 位于内置清除按钮左侧。
+
+**方案 B 做法**：禁用内置清除按钮（`setClearButtonEnabled(false)`），自绘一个 `DIconButton(QStyle::SP_LineEditClearButton)`，与计数 label 放入同一容器 `[label][6px spacer][清除按钮]`，通过 `DLineEdit::setRightWidgets` 添加。容器内部布局完全可控，label 在清除按钮左侧、间距 6px。
+
+- 清除按钮：`DIconButton(QStyle::SP_LineEditClearButton)`，16x16，点击清空文本，可见性跟随文本非空
+- 6px 间距：容器内 `QHBoxLayout`（contentsMargins=0, spacing=0），`addWidget(label)` + `addSpacing(6)` + `addWidget(clearButton)`
+- label 右边缘距清除按钮左侧 = 6px（由 spacer 保证）
 
 ## 4. 架构
 
@@ -112,6 +115,7 @@ QLabel setText("第5/10项")；total==0 时 hide
 
 新增成员（私有）：
 - `QLabel *m_matchCountLabel`
+- `DIconButton *m_clearButton`（自绘清除按钮，替代 DLineEdit 内置的）
 
 新增公共方法：
 - `void setMatchCount(int current, int total)`
@@ -119,10 +123,12 @@ QLabel setText("第5/10项")；total==0 时 hide
   - 否则 `setText(QString("第%1/%2项").arg(current).arg(total))`，`show()`
 
 构造函数内：
+- `setClearButtonEnabled(false)` — 禁用内置清除按钮
 - 创建 `m_matchCountLabel`，默认 `hide()`
-- 创建容器 `QWidget`，内部 `QHBoxLayout`（contentsMargins=0, spacing=0）依次 `addWidget(label)` + `addSpacing(6)`
-- 容器包进 `QWidgetAction`，调用 `lineEdit()->addAction(action, QLineEdit::TrailingPosition)`
-- label 右边缘距清除按钮左侧 6px（由容器内 spacer 保证）
+- 创建 `m_clearButton`（`DIconButton(QStyle::SP_LineEditClearButton)`，16x16，NoFocus），默认 `hide()`
+- 创建容器 `QWidget`，内部 `QHBoxLayout`（contentsMargins=0, spacing=0）依次 `addWidget(label)` + `addSpacing(6)` + `addWidget(clearButton)`
+- `setRightWidgets({container})`
+- 清除按钮 clicked → `lineEdit()->clear()`；可见性由 `handleTextChanged` 跟随文本非空控制
 
 #### FindBar（被动更新）
 
@@ -216,7 +222,7 @@ m_replaceBar->slotUpdateMatchCount(0, 0);
 `tests/src/controls/ut_linebar.cpp`：
 - `setMatchCount(5,10)` 后 `m_matchCountLabel` 文本为 "第5/10项" 且可见（`isVisible()` 为 true）
 - `setMatchCount(0,0)` 后 `m_matchCountLabel` 隐藏（`isVisible()` 为 false）
-- `m_matchCountLabel` 位于带布局的容器中（验证 `parentWidget()` 非空且其 layout 为 QHBoxLayout、spacing==0；间距由容器内 spacer 保证，headless 环境无法验证像素）
+- 计数 label 与自绘清除按钮在同一容器中，label 在清除按钮左侧（用 `layout->indexOf()` 断言顺序：label index < button index）；内置清除按钮已禁用（`isClearButtonEnabled()==false`）；6px 间距由容器内 spacer 保证（headless 环境无法验证像素）
 
 `tests/src/controls/ut_findbar.cpp` / `ut_replacebar.cpp`：
 - `slotUpdateMatchCount` 正确转发到内部 LineBar：调用后 LineBar 的 label 文本正确

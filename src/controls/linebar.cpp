@@ -17,26 +17,32 @@ LineBar::LineBar(DLineEdit *parent)
     : DLineEdit(parent)
 {
     qDebug() << "LineBar constructor start";
-    // Init.
-    setClearButtonEnabled(true);
+    // 不使用 DLineEdit 的内置清除按钮（setClearButtonEnabled）。
+    // 原因：Qt6 下 QLineEdit::addAction(TrailingPosition) 和 DLineEdit::setRightWidgets
+    // 都把自定义 widget 放在内置清除按钮的右侧，无法让计数 label 处于清除按钮左侧。
+    // 改为自绘清除按钮，与计数 label 放入同一容器 [label][6px spacer][清除按钮]，
+    // 通过 setRightWidgets 添加，顺序完全可控。
+    setClearButtonEnabled(false);
 
     m_matchCountLabel = new QLabel();
     m_matchCountLabel->hide();
 
-    // 用容器 widget + 布局实现 label 与内置清除按钮的 6px 间距。
-    // QLineEdit::addAction 把 action widget 紧贴放置（无 action 间距 API，stylesheet margin
-    // 在 QLineEdit 内部布局中也不可靠），因此在容器内部 label 右侧加 6px spacer：
-    // 容器右边缘紧贴清除按钮，label 右边缘距清除按钮左侧 6px。
-    QWidget *matchCountContainer = new QWidget(this);
-    QHBoxLayout *matchCountLayout = new QHBoxLayout(matchCountContainer);
-    matchCountLayout->setContentsMargins(0, 0, 0, 0);
-    matchCountLayout->setSpacing(0);
-    matchCountLayout->addWidget(m_matchCountLabel);
-    matchCountLayout->addSpacing(6);
+    m_clearButton = new DIconButton(QStyle::SP_LineEditClearButton);
+    m_clearButton->setFixedSize(16, 16);
+    m_clearButton->setIconSize(QSize(16, 16));
+    m_clearButton->setFocusPolicy(Qt::NoFocus);
+    m_clearButton->hide();
 
-    QWidgetAction *matchCountAction = new QWidgetAction(this);
-    matchCountAction->setDefaultWidget(matchCountContainer);
-    lineEdit()->addAction(matchCountAction, QLineEdit::TrailingPosition);
+    // 容器：label 在最左，6px 间距，清除按钮在最右
+    QWidget *rightContainer = new QWidget(this);
+    QHBoxLayout *rightLayout = new QHBoxLayout(rightContainer);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(0);
+    rightLayout->addWidget(m_matchCountLabel);
+    rightLayout->addSpacing(6);
+    rightLayout->addWidget(m_clearButton);
+
+    setRightWidgets({rightContainer});
 
     m_autoSaveInternal = 50;
     m_autoSaveTimer = new QTimer(this);
@@ -47,6 +53,13 @@ LineBar::LineBar(DLineEdit *parent)
     connect(this, &DLineEdit::textEdited, this, &LineBar::sendText, Qt::QueuedConnection);
     connect(this, &DLineEdit::textChanged, this, &LineBar::handleTextChanged, Qt::QueuedConnection);
     qDebug() << "Signal connections established";
+
+    // 自绘清除按钮：点击清空文本；可见性跟随文本是否为空
+    connect(m_clearButton, &DIconButton::clicked, this, [this]() {
+        qDebug() << "Clear button clicked, clearing text";
+        lineEdit()->clear();
+    });
+
 #ifdef DTKWIDGET_CLASS_DSizeMode
     setFixedHeight(DGuiApplicationHelper::isCompactMode() ? s_nLineBarHeightCompact : s_nLineBarHeight);
     connect(DGuiApplicationHelper::instance(), &DGuiApplicationHelper::sizeModeChanged, this, [this](){
@@ -72,6 +85,9 @@ void LineBar::handleTextChanged(const QString &str)
     if(str.isEmpty()) {
         qDebug() << "Text cleared, disabling alert";
         setAlert(false);
+        m_clearButton->hide();
+    } else {
+        m_clearButton->show();
     }
     // Start new timer.
     m_autoSaveTimer->start(m_autoSaveInternal);

@@ -6,6 +6,7 @@
 #include "../../src/controls/linebar.h"
 #include <QFocusEvent>
 #include <QEvent>
+#include <QHBoxLayout>
 #include <DGuiApplicationHelper>
 DGUI_USE_NAMESPACE
 DGUI_USE_NAMESPACE
@@ -164,21 +165,39 @@ TEST_F(test_linebar, setMatchCount_ZeroCurrent)
     lineBar->deleteLater();
 }
 
-//m_matchCountLabel 位于带布局的容器中（容器内 label 右侧有 6px spacer，
-//保证 label 右边缘距清除按钮左侧 6px）
-TEST_F(test_linebar, m_matchCountLabel_InLayoutContainer)
+//计数 label 与自绘清除按钮在同一个 rightWidget 容器中，且 label 在清除按钮左侧（顺序对），
+//内部用 6px spacer 保证 label 右边缘距清除按钮左侧 6px
+TEST_F(test_linebar, m_matchCountLabel_LeftOfClearButton)
 {
     LineBar *lineBar = new LineBar();
 
-    // label 应被放进一个容器 widget（parent 不为空且该容器有 layout）
-    QWidget *container = lineBar->m_matchCountLabel->parentWidget();
-    ASSERT_NE(container, nullptr);
-    ASSERT_NE(container->layout(), nullptr);
+    // label 和清除按钮应有同一个容器 parent
+    QWidget *labelContainer = lineBar->m_matchCountLabel->parentWidget();
+    QWidget *buttonContainer = lineBar->m_clearButton->parentWidget();
+    ASSERT_NE(labelContainer, nullptr);
+    EXPECT_EQ(labelContainer, buttonContainer);
 
-    // 容器布局应为 QHBoxLayout，包含 label 和一个 6px 的 spacer
-    QHBoxLayout *layout = qobject_cast<QHBoxLayout *>(container->layout());
+    // 容器布局为 QHBoxLayout，spacing==0（间距由 addSpacing 保证）
+    QHBoxLayout *layout = qobject_cast<QHBoxLayout *>(labelContainer->layout());
     ASSERT_NE(layout, nullptr);
     EXPECT_EQ(layout->spacing(), 0);
+
+    // 顺序断言：label 在清除按钮之前（index 更小 → 视觉上更靠左）
+    int labelIndex = layout->indexOf(lineBar->m_matchCountLabel);
+    int buttonIndex = layout->indexOf(lineBar->m_clearButton);
+    ASSERT_GE(labelIndex, 0);
+    ASSERT_GE(buttonIndex, 0);
+    EXPECT_LT(labelIndex, buttonIndex);
+
+    lineBar->deleteLater();
+}
+
+//内置清除按钮已禁用（改用自绘清除按钮以控制顺序）
+TEST_F(test_linebar, builtinClearButtonDisabled)
+{
+    LineBar *lineBar = new LineBar();
+
+    EXPECT_FALSE(lineBar->isClearButtonEnabled());
 
     lineBar->deleteLater();
 }

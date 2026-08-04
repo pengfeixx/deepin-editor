@@ -7,9 +7,11 @@
 
 #include "dlineedit.h"
 
+#include <DIconButton>
+#include <DStyle>
+
 #include <QLabel>
 #include <QTimer>
-#include <QWidgetAction>
 
 DWIDGET_USE_NAMESPACE
 
@@ -43,6 +45,7 @@ private:
     QTimer *m_autoSaveTimer;
     int m_autoSaveInternal;
     QLabel *m_matchCountLabel;
+    DIconButton *m_clearButton;
 };
 
 #endif
