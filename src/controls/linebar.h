@@ -7,7 +7,9 @@
 
 #include "dlineedit.h"
 
+#include <QLabel>
 #include <QTimer>
+#include <QWidgetAction>
 
 DWIDGET_USE_NAMESPACE
 
@@ -17,6 +19,7 @@ class LineBar : public DLineEdit
 
 public:
     explicit LineBar(DLineEdit *parent = 0);
+    void setMatchCount(int current, int total);
 
 public slots:
     void handleTextChangeTimer();
@@ -39,6 +42,7 @@ protected:
 private:
     QTimer *m_autoSaveTimer;
     int m_autoSaveInternal;
+    QLabel *m_matchCountLabel;
 };
 
 #endif

@@ -123,3 +123,53 @@ TEST_F(test_linebar, ConstructorSizeModeLambda)
     EXPECT_NE(lineBar, nullptr);
     lineBar->deleteLater();
 }
+
+//setMatchCount 显示文本和可见性
+TEST_F(test_linebar, setMatchCount_Display)
+{
+    LineBar *lineBar = new LineBar();
+    lineBar->m_matchCountLabel->show();
+
+    lineBar->setMatchCount(5, 10);
+
+    EXPECT_EQ(lineBar->m_matchCountLabel->text().toStdString(), "第5/10项");
+    EXPECT_FALSE(lineBar->m_matchCountLabel->isHidden());
+
+    lineBar->deleteLater();
+}
+
+//setMatchCount total==0 隐藏
+TEST_F(test_linebar, setMatchCount_HideOnZero)
+{
+    LineBar *lineBar = new LineBar();
+    lineBar->m_matchCountLabel->show();
+
+    lineBar->setMatchCount(0, 0);
+
+    EXPECT_TRUE(lineBar->m_matchCountLabel->isHidden());
+
+    lineBar->deleteLater();
+}
+
+//setMatchCount 0/N 场景
+TEST_F(test_linebar, setMatchCount_ZeroCurrent)
+{
+    LineBar *lineBar = new LineBar();
+
+    lineBar->setMatchCount(0, 5);
+
+    EXPECT_EQ(lineBar->m_matchCountLabel->text().toStdString(), "第0/5项");
+    EXPECT_FALSE(lineBar->m_matchCountLabel->isHidden());
+
+    lineBar->deleteLater();
+}
+
+//m_matchCountLabel stylesheet 含 padding-left:6px
+TEST_F(test_linebar, m_matchCountLabel_StyleSheetPadding)
+{
+    LineBar *lineBar = new LineBar();
+
+    EXPECT_TRUE(lineBar->m_matchCountLabel->styleSheet().contains("padding-left:6px"));
+
+    lineBar->deleteLater();
+}

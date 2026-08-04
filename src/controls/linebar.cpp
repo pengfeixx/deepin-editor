@@ -20,6 +20,14 @@ LineBar::LineBar(DLineEdit *parent)
     // Init.
     setClearButtonEnabled(true);
 
+    m_matchCountLabel = new QLabel(this);
+    m_matchCountLabel->setStyleSheet("padding-left:6px;");
+    m_matchCountLabel->hide();
+
+    QWidgetAction *matchCountAction = new QWidgetAction(this);
+    matchCountAction->setDefaultWidget(m_matchCountLabel);
+    lineEdit()->addAction(matchCountAction, QLineEdit::TrailingPosition);
+
     m_autoSaveInternal = 50;
     m_autoSaveTimer = new QTimer(this);
     m_autoSaveTimer->setSingleShot(true);
@@ -96,5 +104,15 @@ void LineBar::keyPressEvent(QKeyEvent *e)
     }else {
       // Pass event to DLineEdit continue, otherwise you can't type anything after here. ;)
        DLineEdit::keyPressEvent(e);
+    }
+}
+
+void LineBar::setMatchCount(int current, int total)
+{
+    if (total == 0) {
+        m_matchCountLabel->hide();
+    } else {
+        m_matchCountLabel->setText(QString("第%1/%2项").arg(current).arg(total));
+        m_matchCountLabel->show();
     }
 }
