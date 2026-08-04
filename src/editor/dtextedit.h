@@ -210,6 +210,7 @@ public:
                                       Qt::CaseSensitivity caseFlag = Qt::CaseInsensitive);
     void updateHighlightLineSelection();
     bool updateKeywordSelections(QString keyword, QTextCharFormat charFormat, QList<QTextEdit::ExtraSelection> &listSelection);
+    QList<int> scanAllMatchPositions(const QString &keyword, Qt::CaseSensitivity caseFlag = Qt::CaseInsensitive) const;
     bool updateKeywordSelectionsInView(QString keyword, QTextCharFormat charFormat, QList<QTextEdit::ExtraSelection> *listSelection,
                                        Qt::CaseSensitivity caseFlag = Qt::CaseInsensitive);
     bool searchKeywordSeletion(QString keyword, QTextCursor cursor, bool findNext,

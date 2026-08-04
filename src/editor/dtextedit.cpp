@@ -2419,6 +2419,32 @@ bool TextEdit::updateKeywordSelections(QString keyword, QTextCharFormat charForm
     return false;
 }
 
+QList<int> TextEdit::scanAllMatchPositions(const QString &keyword, Qt::CaseSensitivity caseFlag) const
+{
+    qDebug() << "Scanning all match positions for keyword:" << keyword;
+    QList<int> positions;
+
+    if (keyword.isEmpty()) {
+        qDebug() << "Empty keyword, return empty list";
+        return positions;
+    }
+
+    QTextCursor cursor(document());
+    QTextDocument::FindFlags flags;
+    if (Qt::CaseSensitive == caseFlag) {
+        flags |= QTextDocument::FindCaseSensitively;
+    }
+
+    cursor = document()->find(keyword, cursor, flags);
+    while (!cursor.isNull()) {
+        positions.append(cursor.selectionStart());
+        cursor = document()->find(keyword, cursor, flags);
+    }
+
+    qDebug() << "Scan completed, total positions:" << positions.size();
+    return positions;
+}
+
 bool TextEdit::updateKeywordSelectionsInView(QString keyword, QTextCharFormat charFormat,
                                              QList<QTextEdit::ExtraSelection> *listSelection, Qt::CaseSensitivity caseFlag)
 {

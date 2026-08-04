@@ -10826,3 +10826,68 @@ TEST(UT_Textedit_Uncovered, calcMarkReplaceList)
     SUCCEED();
     win->deleteLater();
 }
+
+//scanAllMatchPositions 基础计数
+TEST(UT_test_textedit_scanAllMatchPositions, UT_test_textedit_scanAllMatchPositions_001)
+{
+    Window *pWindow = new Window();
+    pWindow->addBlankTab(QString());
+    QString strMsg("hello world\nhello world");
+    QTextCursor textCursor = pWindow->currentWrapper()->textEditor()->textCursor();
+    pWindow->currentWrapper()->textEditor()->insertTextEx(textCursor, strMsg);
+
+    QList<int> positions = pWindow->currentWrapper()->textEditor()->scanAllMatchPositions(QString("world"));
+
+    ASSERT_EQ(positions.size(), 2);
+    ASSERT_EQ(positions[0], 6);
+    ASSERT_EQ(positions[1], 18);
+    pWindow->deleteLater();
+}
+
+//scanAllMatchPositions 空关键字返回空列表
+TEST(UT_test_textedit_scanAllMatchPositions, UT_test_textedit_scanAllMatchPositions_Empty)
+{
+    Window *pWindow = new Window();
+    pWindow->addBlankTab(QString());
+    QString strMsg("hello world");
+    QTextCursor textCursor = pWindow->currentWrapper()->textEditor()->textCursor();
+    pWindow->currentWrapper()->textEditor()->insertTextEx(textCursor, strMsg);
+
+    QList<int> positions = pWindow->currentWrapper()->textEditor()->scanAllMatchPositions(QString());
+
+    ASSERT_TRUE(positions.isEmpty());
+    pWindow->deleteLater();
+}
+
+//scanAllMatchPositions 大小写敏感
+TEST(UT_test_textedit_scanAllMatchPositions, UT_test_textedit_scanAllMatchPositions_CaseSensitive)
+{
+    Window *pWindow = new Window();
+    pWindow->addBlankTab(QString());
+    QString strMsg("hello world\nHello world");
+    QTextCursor textCursor = pWindow->currentWrapper()->textEditor()->textCursor();
+    pWindow->currentWrapper()->textEditor()->insertTextEx(textCursor, strMsg);
+
+    QList<int> positionsCI = pWindow->currentWrapper()->textEditor()->scanAllMatchPositions(QString("Hello"), Qt::CaseInsensitive);
+    ASSERT_EQ(positionsCI.size(), 2);
+
+    QList<int> positionsCS = pWindow->currentWrapper()->textEditor()->scanAllMatchPositions(QString("Hello"), Qt::CaseSensitive);
+    ASSERT_EQ(positionsCS.size(), 1);
+    ASSERT_EQ(positionsCS[0], 12);
+    pWindow->deleteLater();
+}
+
+//scanAllMatchPositions 无匹配返回空列表
+TEST(UT_test_textedit_scanAllMatchPositions, UT_test_textedit_scanAllMatchPositions_NoMatch)
+{
+    Window *pWindow = new Window();
+    pWindow->addBlankTab(QString());
+    QString strMsg("hello world");
+    QTextCursor textCursor = pWindow->currentWrapper()->textEditor()->textCursor();
+    pWindow->currentWrapper()->textEditor()->insertTextEx(textCursor, strMsg);
+
+    QList<int> positions = pWindow->currentWrapper()->textEditor()->scanAllMatchPositions(QString("xyz"));
+
+    ASSERT_TRUE(positions.isEmpty());
+    pWindow->deleteLater();
+}
