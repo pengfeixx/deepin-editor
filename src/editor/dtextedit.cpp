@@ -123,6 +123,7 @@ TextEdit::TextEdit(QWidget *parent)
 
     connect(this, &QPlainTextEdit::cursorPositionChanged, this, &TextEdit::cursorPositionChanged);
     connect(this, &QPlainTextEdit::selectionChanged, this, &TextEdit::onSelectionArea);
+    connect(this, &QPlainTextEdit::textChanged, this, &TextEdit::invalidateMatchCountCache);
 
     connect(document(), &QTextDocument::contentsChange, this, &TextEdit::updateMark);
     connect(document(), &QTextDocument::contentsChange, this, &TextEdit::checkBookmarkLineMove);
@@ -2361,6 +2362,7 @@ void TextEdit::updateCursorKeywordSelection(QString keyword, bool findNext,
         }
     }
     qDebug() << "Updating cursor keyword selection completed";
+    updateMatchCount(keyword, caseFlag);
 }
 
 void TextEdit::updateHighlightLineSelection()
@@ -2443,6 +2445,56 @@ QList<int> TextEdit::scanAllMatchPositions(const QString &keyword, Qt::CaseSensi
 
     qDebug() << "Scan completed, total positions:" << positions.size();
     return positions;
+}
+
+int TextEdit::findCurrentMatchIndex() const
+{
+    qDebug() << "Finding current match index";
+    if (m_allMatchPositions.isEmpty()) {
+        qDebug() << "Empty cache, return 0";
+        return 0;
+    }
+
+    int cursorPos = m_findHighlightSelection.cursor.selectionStart();
+    for (int i = 0; i < m_allMatchPositions.size(); ++i) {
+        if (m_allMatchPositions[i] == cursorPos) {
+            qDebug() << "Found at index" << i;
+            return i + 1;
+        }
+    }
+
+    qDebug() << "Not found in cache, return 0";
+    return 0;
+}
+
+void TextEdit::updateMatchCount(const QString &keyword, Qt::CaseSensitivity caseFlag)
+{
+    qDebug() << "updateMatchCount keyword:" << keyword << "case:" << caseFlag;
+
+    if (keyword.isEmpty()) {
+        qDebug() << "Empty keyword, emit (0, 0)";
+        emit findMatchCountChanged(0, 0);
+        return;
+    }
+
+    if (keyword != m_countedKeyword || caseFlag != m_countedCase) {
+        qDebug() << "Cache miss, rescan";
+        m_allMatchPositions = scanAllMatchPositions(keyword, caseFlag);
+        m_countedKeyword = keyword;
+        m_countedCase = caseFlag;
+    }
+
+    int total = m_allMatchPositions.size();
+    int current = findCurrentMatchIndex();
+    qDebug() << "Emit findMatchCountChanged current:" << current << "total:" << total;
+    emit findMatchCountChanged(current, total);
+}
+
+void TextEdit::invalidateMatchCountCache()
+{
+    qDebug() << "Invalidating match count cache";
+    m_countedKeyword.clear();
+    m_allMatchPositions.clear();
 }
 
 bool TextEdit::updateKeywordSelectionsInView(QString keyword, QTextCharFormat charFormat,

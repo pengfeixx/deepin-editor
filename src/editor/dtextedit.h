@@ -211,6 +211,7 @@ public:
     void updateHighlightLineSelection();
     bool updateKeywordSelections(QString keyword, QTextCharFormat charFormat, QList<QTextEdit::ExtraSelection> &listSelection);
     QList<int> scanAllMatchPositions(const QString &keyword, Qt::CaseSensitivity caseFlag = Qt::CaseInsensitive) const;
+    int findCurrentMatchIndex() const;
     bool updateKeywordSelectionsInView(QString keyword, QTextCharFormat charFormat, QList<QTextEdit::ExtraSelection> *listSelection,
                                        Qt::CaseSensitivity caseFlag = Qt::CaseInsensitive);
     bool searchKeywordSeletion(QString keyword, QTextCursor cursor, bool findNext,
@@ -482,6 +483,7 @@ signals:
     void popupNotify(QString notify, bool warning = false);
     void signal_readingPath();
     void signal_setTitleFocus();
+    void findMatchCountChanged(int current, int total);
 public slots:
     /**
      * @author liumaochuan ut000616
@@ -590,6 +592,8 @@ private:
     void unCommentSelection();
     void setComment();
     void removeComment();
+    void updateMatchCount(const QString &keyword, Qt::CaseSensitivity caseFlag);
+    void invalidateMatchCountCache();
 
     //去除"*{*" "*}*" "*{*}*"跳过当做普通文本处理不折叠　梁卫东２０２０－０９－０１　１７：１６：４１
     bool blockContainStrBrackets(int line);
@@ -643,6 +647,9 @@ private:
     QPropertyAnimation *m_scrollAnimation {nullptr};
 
     QList<QTextEdit::ExtraSelection> m_findMatchSelections;///< “查找”的字符格式（所有查找的字符）
+    QList<int> m_allMatchPositions;
+    QString m_countedKeyword;
+    Qt::CaseSensitivity m_countedCase = Qt::CaseInsensitive;
     QTextEdit::ExtraSelection m_beginBracketSelection;
     QTextEdit::ExtraSelection m_endBracketSelection;
     QTextEdit::ExtraSelection m_currentLineSelection;///< 光标所在当前行的样式
