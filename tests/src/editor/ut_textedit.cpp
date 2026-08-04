@@ -11027,3 +11027,21 @@ TEST(UT_test_textedit_updateMatchCount, UT_test_textedit_updateMatchCount_CacheH
     ASSERT_EQ(keywordCache, QString("hello"));
     pWindow->deleteLater();
 }
+
+//invalidateMatchCountCache 由 textChanged 信号触发
+TEST(UT_test_textedit_invalidateMatchCountCache, UT_test_textedit_invalidateMatchCountCache_OnTextChanged)
+{
+    Window *pWindow = new Window();
+    pWindow->addBlankTab(QString());
+    TextEdit *editor = pWindow->currentWrapper()->textEditor();
+    editor->insertPlainText("hello\nhello\nhello");
+
+    editor->updateMatchCount(QString("hello"), Qt::CaseInsensitive);
+    ASSERT_FALSE(editor->m_allMatchPositions.isEmpty());
+    ASSERT_EQ(editor->m_countedKeyword, QString("hello"));
+
+    editor->insertPlainText("x");
+    ASSERT_TRUE(editor->m_allMatchPositions.isEmpty());
+    ASSERT_TRUE(editor->m_countedKeyword.isEmpty());
+    pWindow->deleteLater();
+}

@@ -19,6 +19,8 @@
 #include "endlineformatcommond.h"
 #include <QSet>
 
+#include <algorithm>
+
 #include <KSyntaxHighlighting/definition.h>
 #include <KSyntaxHighlighting/syntaxhighlighter.h>
 #include <KSyntaxHighlighting/theme.h>
@@ -2456,11 +2458,11 @@ int TextEdit::findCurrentMatchIndex() const
     }
 
     int cursorPos = m_findHighlightSelection.cursor.selectionStart();
-    for (int i = 0; i < m_allMatchPositions.size(); ++i) {
-        if (m_allMatchPositions[i] == cursorPos) {
-            qDebug() << "Found at index" << i;
-            return i + 1;
-        }
+    auto it = std::lower_bound(m_allMatchPositions.begin(), m_allMatchPositions.end(), cursorPos);
+    if (it != m_allMatchPositions.end() && *it == cursorPos) {
+        int index = static_cast<int>(std::distance(m_allMatchPositions.begin(), it));
+        qDebug() << "Found at index" << index;
+        return index + 1;
     }
 
     qDebug() << "Not found in cache, return 0";

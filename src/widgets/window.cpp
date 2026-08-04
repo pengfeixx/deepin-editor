@@ -818,6 +818,9 @@ void Window::addTabWithWrapper(EditWrapper *wrapper, const QString &filepath, co
         wrapper->UpdateBottomBarWordCnt(wrapper->textEditor()->characterCount());
     });
 
+    connect(wrapper->textEditor(), &QPlainTextEdit::textChanged,
+            wrapper->textEditor(), &TextEdit::invalidateMatchCountCache);
+
     qDebug() << "Adding tab to tabbar at index:" << index << "with filepath:" << filepath << "tabName:" << tabName;
     // add wrapper to this window.
     m_tabbar->addTabWithIndex(index, filepath, tabName, qstrTruePath);
