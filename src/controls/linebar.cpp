@@ -21,7 +21,7 @@ LineBar::LineBar(DLineEdit *parent)
     setClearButtonEnabled(true);
 
     m_matchCountLabel = new QLabel(this);
-    m_matchCountLabel->setStyleSheet("padding-left:6px;");
+    m_matchCountLabel->setStyleSheet("margin-right:6px;");
     m_matchCountLabel->hide();
 
     QWidgetAction *matchCountAction = new QWidgetAction(this);

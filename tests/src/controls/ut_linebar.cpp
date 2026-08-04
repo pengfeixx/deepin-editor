@@ -164,12 +164,12 @@ TEST_F(test_linebar, setMatchCount_ZeroCurrent)
     lineBar->deleteLater();
 }
 
-//m_matchCountLabel stylesheet 含 padding-left:6px
+//m_matchCountLabel stylesheet 含 margin-right:6px
 TEST_F(test_linebar, m_matchCountLabel_StyleSheetPadding)
 {
     LineBar *lineBar = new LineBar();
 
-    EXPECT_TRUE(lineBar->m_matchCountLabel->styleSheet().contains("padding-left:6px"));
+    EXPECT_TRUE(lineBar->m_matchCountLabel->styleSheet().contains("margin-right:6px"));
 
     lineBar->deleteLater();
 }
