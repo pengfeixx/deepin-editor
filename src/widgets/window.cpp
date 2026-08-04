@@ -784,6 +784,10 @@ void Window::addTabWithWrapper(EditWrapper *wrapper, const QString &filepath, co
     qDebug() << "Connecting signals to text editor";
     connect(wrapper->textEditor(), &TextEdit::cursorModeChanged, wrapper, &EditWrapper::handleCursorModeChanged);
     connect(wrapper->textEditor(), &TextEdit::clickFindAction, this, &Window::popupFindBar, Qt::QueuedConnection);
+    connect(wrapper->textEditor(), &TextEdit::findMatchCountChanged,
+            m_findBar, &FindBar::slotUpdateMatchCount, Qt::QueuedConnection);
+    connect(wrapper->textEditor(), &TextEdit::findMatchCountChanged,
+            m_replaceBar, &ReplaceBar::slotUpdateMatchCount, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::clickReplaceAction, this, &Window::popupReplaceBar, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::clickJumpLineAction, this, &Window::popupJumpLineBar, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::clickFullscreenAction, this, &Window::toggleFullscreen, Qt::QueuedConnection);
@@ -1109,6 +1113,10 @@ EditWrapper *Window::createEditor()
     connect(wrapper->textEditor(), &TextEdit::signal_readingPath, this, &Window::slot_saveReadingPath, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::signal_setTitleFocus, this, &Window::slot_setTitleFocus, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::clickFindAction, this, &Window::popupFindBar, Qt::QueuedConnection);
+    connect(wrapper->textEditor(), &TextEdit::findMatchCountChanged,
+            m_findBar, &FindBar::slotUpdateMatchCount, Qt::QueuedConnection);
+    connect(wrapper->textEditor(), &TextEdit::findMatchCountChanged,
+            m_replaceBar, &ReplaceBar::slotUpdateMatchCount, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::clickReplaceAction, this, &Window::popupReplaceBar, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::clickJumpLineAction, this, &Window::popupJumpLineBar, Qt::QueuedConnection);
     connect(wrapper->textEditor(), &TextEdit::clickFullscreenAction, this, &Window::toggleFullscreen, Qt::QueuedConnection);
@@ -3462,6 +3470,9 @@ void Window::handleCurrentChanged(const int &index)
         qDebug() << "m_replaceBar is visible";
         m_replaceBar->hide();
     }
+
+    m_findBar->slotUpdateMatchCount(0, 0);
+    m_replaceBar->slotUpdateMatchCount(0, 0);
 
     if (m_jumpLineBar->isVisible()) {
         qDebug() << "m_jumpLineBar is visible";
