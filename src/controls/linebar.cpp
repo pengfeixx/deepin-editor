@@ -20,12 +20,22 @@ LineBar::LineBar(DLineEdit *parent)
     // Init.
     setClearButtonEnabled(true);
 
-    m_matchCountLabel = new QLabel(this);
-    m_matchCountLabel->setStyleSheet("margin-right:6px;");
+    m_matchCountLabel = new QLabel();
     m_matchCountLabel->hide();
 
+    // 用容器 widget + 布局实现 label 与内置清除按钮的 6px 间距。
+    // QLineEdit::addAction 把 action widget 紧贴放置（无 action 间距 API，stylesheet margin
+    // 在 QLineEdit 内部布局中也不可靠），因此在容器内部 label 右侧加 6px spacer：
+    // 容器右边缘紧贴清除按钮，label 右边缘距清除按钮左侧 6px。
+    QWidget *matchCountContainer = new QWidget(this);
+    QHBoxLayout *matchCountLayout = new QHBoxLayout(matchCountContainer);
+    matchCountLayout->setContentsMargins(0, 0, 0, 0);
+    matchCountLayout->setSpacing(0);
+    matchCountLayout->addWidget(m_matchCountLabel);
+    matchCountLayout->addSpacing(6);
+
     QWidgetAction *matchCountAction = new QWidgetAction(this);
-    matchCountAction->setDefaultWidget(m_matchCountLabel);
+    matchCountAction->setDefaultWidget(matchCountContainer);
     lineEdit()->addAction(matchCountAction, QLineEdit::TrailingPosition);
 
     m_autoSaveInternal = 50;

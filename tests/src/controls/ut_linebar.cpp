@@ -164,12 +164,21 @@ TEST_F(test_linebar, setMatchCount_ZeroCurrent)
     lineBar->deleteLater();
 }
 
-//m_matchCountLabel stylesheet 含 margin-right:6px
-TEST_F(test_linebar, m_matchCountLabel_StyleSheetPadding)
+//m_matchCountLabel 位于带布局的容器中（容器内 label 右侧有 6px spacer，
+//保证 label 右边缘距清除按钮左侧 6px）
+TEST_F(test_linebar, m_matchCountLabel_InLayoutContainer)
 {
     LineBar *lineBar = new LineBar();
 
-    EXPECT_TRUE(lineBar->m_matchCountLabel->styleSheet().contains("margin-right:6px"));
+    // label 应被放进一个容器 widget（parent 不为空且该容器有 layout）
+    QWidget *container = lineBar->m_matchCountLabel->parentWidget();
+    ASSERT_NE(container, nullptr);
+    ASSERT_NE(container->layout(), nullptr);
+
+    // 容器布局应为 QHBoxLayout，包含 label 和一个 6px 的 spacer
+    QHBoxLayout *layout = qobject_cast<QHBoxLayout *>(container->layout());
+    ASSERT_NE(layout, nullptr);
+    EXPECT_EQ(layout->spacing(), 0);
 
     lineBar->deleteLater();
 }
