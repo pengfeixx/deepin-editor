@@ -191,7 +191,7 @@ TEST_F(test_replacebar, keyPressEvent)
     rep->keyPressEvent(e2);
 
     EXPECT_EQ(rep->m_replaceRestButton->hasFocus(),false);
-    delete e2; e2 = nullptr;
+    delete e2;e2=nullptr;
 
 
     EXPECT_NE(rep,nullptr);
@@ -212,11 +212,11 @@ TEST_F(test_replacebar, slotUpdateMatchCount_OnlyReplaceLine)
     EXPECT_EQ(replaceBar->m_replaceLine->m_matchCountLabel->text().toStdString(), "第5/10项");
     // Visibility adapted for headless test env: isVisible() is unreliable; use isHidden() (see Task 3 & 4 lesson)
     EXPECT_FALSE(replaceBar->m_replaceLine->m_matchCountLabel->isHidden());
-    // m_withLine must NEVER be touched by the slot. isVisible() kept here (per brief): in headless env,
-    // a child widget whose parent chain has no visible top-level window reports isVisible()=false even
-    // after show(); this is exactly the "NOT shown" state we want to assert. isHidden() would be FALSE
-    // (because the test setup called show() on it) and cannot be used here.
-    EXPECT_FALSE(replaceBar->m_withLine->m_matchCountLabel->isVisible());
+    // m_withLine must NEVER be touched by the slot. Assert via text (the real oracle): a regression
+    // that leaks setMatchCount onto m_withLine would set text to e.g. "第5/10项" and fail here.
+    // isVisible()/isHidden() are NOT used: in headless env isVisible() is a tautology (always false
+    // regardless of what the slot does), and isHidden() is false because the setup above called show().
+    EXPECT_TRUE(replaceBar->m_withLine->m_matchCountLabel->text().isEmpty());
 
     replaceBar->deleteLater();
 }
