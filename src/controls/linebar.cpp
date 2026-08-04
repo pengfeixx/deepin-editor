@@ -6,7 +6,6 @@
 #include "../common/utils.h"
 
 #include <DGuiApplicationHelper>
-#include <QWidgetAction>
 
 #include <QDebug>
 
@@ -14,40 +13,33 @@
 const int s_nLineBarHeight = 36;
 const int s_nLineBarHeightCompact = 24;
 
+// 计数 label 与自绘清除按钮的布局参数（像素）
+const int s_nClearButtonSize = 16;     // 自绘清除按钮尺寸
+const int s_nLabelButtonSpacing = 6;   // label 与清除按钮之间的间距
+const int s_nRightMargin = 6;          // 清除按钮右边缘距输入框右边缘的间距
+
 LineBar::LineBar(DLineEdit *parent)
     : DLineEdit(parent)
 {
     qDebug() << "LineBar constructor start";
-    // 不使用 DLineEdit 的内置清除按钮（setClearButtonEnabled）。
+    // 不使用 DLineEdit 的内置清除按钮。
     // 原因：Qt6 下 QLineEdit::addAction(TrailingPosition) 和 DLineEdit::setRightWidgets
-    // 都把自定义 widget 放在内置清除按钮的右侧，无法让计数 label 处于清除按钮左侧。
-    // 改为自绘清除按钮，与计数 label 放入同一容器 [label][6px spacer][清除按钮]，
-    // 通过 QLineEdit::addAction(TrailingPosition) 添加——容器会覆盖在输入框内部右侧
-    // （和原内置清除按钮位置一致），不压缩文本区域。
+    // 都把自定义 widget 放在内置清除按钮的右侧，无法让计数 label 处于清除按钮左侧，
+    // 且 setRightWidgets 会压缩文本区域。改为自绘清除按钮和 label 直接 parent 到
+    // lineEdit()，通过 setGeometry 精确控制坐标：
+    //   label.x = lineEdit.width - (label.width + label↔button间距 + button宽 + 右边距)
+    // 由 resizeEvent 和 setMatchCount 触发重算。
     setClearButtonEnabled(false);
 
-    m_matchCountLabel = new QLabel();
+    // label 和清除按钮直接 parent 到内嵌 lineEdit，覆盖在输入框内部
+    m_matchCountLabel = new QLabel(lineEdit());
     m_matchCountLabel->hide();
 
-    m_clearButton = new DIconButton(QStyle::SP_LineEditClearButton);
-    m_clearButton->setFixedSize(16, 16);
-    m_clearButton->setIconSize(QSize(16, 16));
+    m_clearButton = new DIconButton(QStyle::SP_LineEditClearButton, lineEdit());
+    m_clearButton->setFixedSize(s_nClearButtonSize, s_nClearButtonSize);
+    m_clearButton->setIconSize(QSize(s_nClearButtonSize, s_nClearButtonSize));
     m_clearButton->setFocusPolicy(Qt::NoFocus);
     m_clearButton->hide();
-
-    // 容器：label 在最左，6px 间距，清除按钮在最右
-    QWidget *rightContainer = new QWidget(this);
-    QHBoxLayout *rightLayout = new QHBoxLayout(rightContainer);
-    rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(0);
-    rightLayout->addWidget(m_matchCountLabel);
-    rightLayout->addSpacing(6);
-    rightLayout->addWidget(m_clearButton);
-
-    // 用 QLineEdit::addAction 覆盖在输入框内部右侧（非 setRightWidgets——后者会压缩文本区域）
-    QWidgetAction *rightAction = new QWidgetAction(this);
-    rightAction->setDefaultWidget(rightContainer);
-    lineEdit()->addAction(rightAction, QLineEdit::TrailingPosition);
 
     m_autoSaveInternal = 50;
     m_autoSaveTimer = new QTimer(this);
@@ -146,4 +138,42 @@ void LineBar::setMatchCount(int current, int total)
         m_matchCountLabel->setText(QString("第%1/%2项").arg(current).arg(total));
         m_matchCountLabel->show();
     }
+    // label 文本变化导致宽度变化，重新计算坐标
+    updateRightWidgetsGeometry();
+}
+
+void LineBar::resizeEvent(QResizeEvent *event)
+{
+    DLineEdit::resizeEvent(event);
+    // 输入框尺寸变化，重新计算 label 和清除按钮的坐标
+    updateRightWidgetsGeometry();
+}
+
+void LineBar::updateRightWidgetsGeometry()
+{
+    // 以 lineEdit() 内部坐标为准。button 右边缘距 lineEdit 右边缘 s_nRightMargin。
+    // 布局从右往左：button → 间距 s_nLabelButtonSpacing → label
+    //   button.x = lineEdit.width - s_nRightMargin - button.width
+    //   label.x  = button.x - s_nLabelButtonSpacing - label.width
+    QWidget *le = lineEdit();
+    if (!le) {
+        return;
+    }
+
+    const int editWidth = le->width();
+    const int editHeight = le->height();
+    const int buttonWidth = m_clearButton->width();
+    const int buttonHeight = m_clearButton->height();
+    const int labelWidth = m_matchCountLabel->sizeHint().width();
+    const int labelHeight = m_matchCountLabel->sizeHint().height();
+
+    // button 垂直居中
+    const int buttonX = editWidth - s_nRightMargin - buttonWidth;
+    const int buttonY = (editHeight - buttonHeight) / 2;
+    m_clearButton->setGeometry(buttonX, buttonY, buttonWidth, buttonHeight);
+
+    // label 垂直居中，水平紧贴 button 左侧 s_nLabelButtonSpacing
+    const int labelX = buttonX - s_nLabelButtonSpacing - labelWidth;
+    const int labelY = (editHeight - labelHeight) / 2;
+    m_matchCountLabel->setGeometry(labelX, labelY, labelWidth, labelHeight);
 }

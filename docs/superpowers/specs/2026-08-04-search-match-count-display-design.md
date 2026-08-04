@@ -32,16 +32,20 @@
 
 ## 3. 方案
 
-采用 **方案 B：自绘清除按钮 + DLineEdit::setRightWidgets**（方案 A 在 Qt6 下被证伪后切换）。
+采用 **方案 B：自绘清除按钮 + setGeometry 精确定位**（方案 A 在 Qt6 下被证伪后切换；setRightWidgets 和 addAction 自动定位均因不满足"在输入框内部 + 精确坐标"诉求被弃用）。
 
-**方案 A 失败原因（实测）**：Qt6 下 `QLineEdit::addAction(TrailingPosition)` 把自定义 action 放在内置清除按钮**右侧**（不是文档假设的左侧）；`DLineEdit::setRightWidgets` 同样把自定义 widget 放在内置清除按钮右侧。两种 API 都无法让自定义 widget 位于内置清除按钮左侧。
+**方案 A 失败原因（实测）**：Qt6 下 `QLineEdit::addAction(TrailingPosition)` 把自定义 action 放在内置清除按钮**右侧**（不是文档假设的左侧）；`DLineEdit::setRightWidgets` 同样把自定义 widget 放在内置清除按钮右侧，且会压缩文本区域。
 
-**方案 B 做法**：禁用内置清除按钮（`setClearButtonEnabled(false)`），自绘一个 `DIconButton(QStyle::SP_LineEditClearButton)`，与计数 label 放入同一容器 `[label][6px spacer][清除按钮]`，通过 `DLineEdit::setRightWidgets` 添加。容器内部布局完全可控，label 在清除按钮左侧、间距 6px。
+**方案 B 做法**：禁用内置清除按钮（`setClearButtonEnabled(false)`），自绘一个 `DIconButton(QStyle::SP_LineEditClearButton)`，与计数 label **直接 parent 到 `lineEdit()`**，通过 `setGeometry` 精确控制坐标。由 `resizeEvent` 和 `setMatchCount` 触发重算，公式（从右往左）：
+- `button.x = lineEdit.width - s_nRightMargin - button.width`
+- `label.x = button.x - s_nLabelButtonSpacing - label.width`
+- 其中 `s_nRightMargin = 6`（button 右边缘距输入框右边缘）、`s_nLabelButtonSpacing = 6`（label 与 button 间距）
 
 - 清除按钮：`DIconButton(QStyle::SP_LineEditClearButton)`，16x16，点击清空文本，可见性跟随文本非空
-- 6px 间距：容器内 `QHBoxLayout`（contentsMargins=0, spacing=0），`addWidget(label)` + `addSpacing(6)` + `addWidget(clearButton)`
-- label 右边缘距清除按钮左侧 = 6px（由 spacer 保证）
-- 容器加入方式：`QLineEdit::addAction(QWidgetAction(container), QLineEdit::TrailingPosition)`——容器**覆盖在输入框内部右侧**（与原内置清除按钮位置一致，不压缩文本区域）。注意：必须先 `setClearButtonEnabled(false)`，否则内置清除按钮会排在 TrailingPosition action 的右侧，导致顺序错乱。**不能用 `DLineEdit::setRightWidgets`**——后者会把容器挤到文本区域之外，压缩文本可用宽度，不符合"在输入框里面"的视觉诉求。
+- label 和 button 垂直居中于 lineEdit
+- 完全不依赖 QLineEdit action 布局或 DLineEdit right widget 机制——坐标完全自管
+
+**为何弃用 addAction/setRightWidgets 的自动定位**：两者都无法精确满足"在输入框内部右侧 + label 在 button 左侧 + 两处 6px 间距"的坐标要求；只有手动 setGeometry 能完全控制。
 
 ## 4. 架构
 
@@ -122,14 +126,20 @@ QLabel setText("第5/10项")；total==0 时 hide
 - `void setMatchCount(int current, int total)`
   - `total == 0` → `m_matchCountLabel->hide()`
   - 否则 `setText(QString("第%1/%2项").arg(current).arg(total))`，`show()`
+  - 末尾调 `updateRightWidgetsGeometry()`（label 文本变化→宽度变化→重算坐标）
+
+新增 protected 方法：
+- `void resizeEvent(QResizeEvent *)` — 调用基类后调 `updateRightWidgetsGeometry()`
+
+新增私有方法：
+- `void updateRightWidgetsGeometry()` — 按 `button.x = lineEdit.width - 6 - button.width`、`label.x = button.x - 6 - label.width` 计算 setGeometry，垂直居中
 
 构造函数内：
-- `setClearButtonEnabled(false)` — 禁用内置清除按钮
-- 创建 `m_matchCountLabel`，默认 `hide()`
-- 创建 `m_clearButton`（`DIconButton(QStyle::SP_LineEditClearButton)`，16x16，NoFocus），默认 `hide()`
-- 创建容器 `QWidget`，内部 `QHBoxLayout`（contentsMargins=0, spacing=0）依次 `addWidget(label)` + `addSpacing(6)` + `addWidget(clearButton)`
-- 容器包进 `QWidgetAction`，调用 `lineEdit()->addAction(action, QLineEdit::TrailingPosition)`——容器覆盖在输入框内部右侧（与原内置清除按钮位置一致，不压缩文本区域）。**不能用 `setRightWidgets`**——后者会压缩文本区域，不符合"在输入框里面"的视觉
+- `setClearButtonEnabled(false)`
+- `m_matchCountLabel = new QLabel(lineEdit())`，默认 `hide()`
+- `m_clearButton = new DIconButton(QStyle::SP_LineEditClearButton, lineEdit())`，16x16，NoFocus，默认 `hide()`
 - 清除按钮 clicked → `lineEdit()->clear()`；可见性由 `handleTextChanged` 跟随文本非空控制
+- **不**创建容器、**不**用 addAction 或 setRightWidgets
 
 #### FindBar（被动更新）
 
@@ -223,7 +233,7 @@ m_replaceBar->slotUpdateMatchCount(0, 0);
 `tests/src/controls/ut_linebar.cpp`：
 - `setMatchCount(5,10)` 后 `m_matchCountLabel` 文本为 "第5/10项" 且可见（`isVisible()` 为 true）
 - `setMatchCount(0,0)` 后 `m_matchCountLabel` 隐藏（`isVisible()` 为 false）
-- 计数 label 与自绘清除按钮在同一容器中，label 在清除按钮左侧（用 `layout->indexOf()` 断言顺序：label index < button index）；内置清除按钮已禁用（`isClearButtonEnabled()==false`）；6px 间距由容器内 spacer 保证（headless 环境无法验证像素）
+- 计数 label 与自绘清除按钮均 parent 到 `lineEdit()`（非容器）；坐标满足：`button.x + button.width = lineEdit.width - 6`、`label.x + label.width + 6 = button.x`；内置清除按钮已禁用（`isClearButtonEnabled()==false`）；垂直居中（可断言 button.y = (editH - btnH)/2）
 
 `tests/src/controls/ut_findbar.cpp` / `ut_replacebar.cpp`：
 - `slotUpdateMatchCount` 正确转发到内部 LineBar：调用后 LineBar 的 label 文本正确

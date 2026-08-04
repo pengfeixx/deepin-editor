@@ -40,8 +40,11 @@ signals:
 protected:
     virtual void focusOutEvent(QFocusEvent *e);
     virtual void keyPressEvent(QKeyEvent *e);
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
+    void updateRightWidgetsGeometry();
+
     QTimer *m_autoSaveTimer;
     int m_autoSaveInternal;
     QLabel *m_matchCountLabel;

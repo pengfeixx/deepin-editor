@@ -165,29 +165,30 @@ TEST_F(test_linebar, setMatchCount_ZeroCurrent)
     lineBar->deleteLater();
 }
 
-//计数 label 与自绘清除按钮在同一个 rightWidget 容器中，且 label 在清除按钮左侧（顺序对），
-//内部用 6px spacer 保证 label 右边缘距清除按钮左侧 6px
+//计数 label 与自绘清除按钮直接 parent 到 lineEdit()（不用容器），
+//通过 setGeometry 精确定位：label 在 button 左侧、间距 6px、button 右边缘距输入框右边 6px
 TEST_F(test_linebar, m_matchCountLabel_LeftOfClearButton)
 {
     LineBar *lineBar = new LineBar();
+    // 触发 label 显示 + 初始化坐标
+    lineBar->setMatchCount(5, 10);
 
-    // label 和清除按钮应有同一个容器 parent
-    QWidget *labelContainer = lineBar->m_matchCountLabel->parentWidget();
-    QWidget *buttonContainer = lineBar->m_clearButton->parentWidget();
-    ASSERT_NE(labelContainer, nullptr);
-    EXPECT_EQ(labelContainer, buttonContainer);
+    // label 和清除按钮的 parent 应为 lineEdit()
+    EXPECT_EQ(lineBar->m_matchCountLabel->parentWidget(), lineBar->lineEdit());
+    EXPECT_EQ(lineBar->m_clearButton->parentWidget(), lineBar->lineEdit());
 
-    // 容器布局为 QHBoxLayout，spacing==0（间距由 addSpacing 保证）
-    QHBoxLayout *layout = qobject_cast<QHBoxLayout *>(labelContainer->layout());
-    ASSERT_NE(layout, nullptr);
-    EXPECT_EQ(layout->spacing(), 0);
+    // 坐标断言：label 与 button 间距 6px（用 x + width 计算 label 右边缘外侧，避开 geometry.right() 的含尾像素）
+    const QRect labelGeom = lineBar->m_matchCountLabel->geometry();
+    const QRect buttonGeom = lineBar->m_clearButton->geometry();
+    const int labelRightOuter = labelGeom.x() + labelGeom.width();
+    EXPECT_EQ(buttonGeom.x() - labelRightOuter, 6);
 
-    // 顺序断言：label 在清除按钮之前（index 更小 → 视觉上更靠左）
-    int labelIndex = layout->indexOf(lineBar->m_matchCountLabel);
-    int buttonIndex = layout->indexOf(lineBar->m_clearButton);
-    ASSERT_GE(labelIndex, 0);
-    ASSERT_GE(buttonIndex, 0);
-    EXPECT_LT(labelIndex, buttonIndex);
+    // button 右边缘距 lineEdit 右边缘 6px
+    const int buttonRightOuter = buttonGeom.x() + buttonGeom.width();
+    EXPECT_EQ(lineBar->lineEdit()->width() - buttonRightOuter, 6);
+
+    // label 应在 button 左侧
+    EXPECT_LT(labelRightOuter, buttonGeom.x());
 
     lineBar->deleteLater();
 }
