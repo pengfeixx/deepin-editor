@@ -6,6 +6,7 @@
 #include "../common/utils.h"
 
 #include <DGuiApplicationHelper>
+#include <QWidgetAction>
 
 #include <QDebug>
 
@@ -21,7 +22,8 @@ LineBar::LineBar(DLineEdit *parent)
     // 原因：Qt6 下 QLineEdit::addAction(TrailingPosition) 和 DLineEdit::setRightWidgets
     // 都把自定义 widget 放在内置清除按钮的右侧，无法让计数 label 处于清除按钮左侧。
     // 改为自绘清除按钮，与计数 label 放入同一容器 [label][6px spacer][清除按钮]，
-    // 通过 setRightWidgets 添加，顺序完全可控。
+    // 通过 QLineEdit::addAction(TrailingPosition) 添加——容器会覆盖在输入框内部右侧
+    // （和原内置清除按钮位置一致），不压缩文本区域。
     setClearButtonEnabled(false);
 
     m_matchCountLabel = new QLabel();
@@ -42,7 +44,10 @@ LineBar::LineBar(DLineEdit *parent)
     rightLayout->addSpacing(6);
     rightLayout->addWidget(m_clearButton);
 
-    setRightWidgets({rightContainer});
+    // 用 QLineEdit::addAction 覆盖在输入框内部右侧（非 setRightWidgets——后者会压缩文本区域）
+    QWidgetAction *rightAction = new QWidgetAction(this);
+    rightAction->setDefaultWidget(rightContainer);
+    lineEdit()->addAction(rightAction, QLineEdit::TrailingPosition);
 
     m_autoSaveInternal = 50;
     m_autoSaveTimer = new QTimer(this);

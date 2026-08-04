@@ -41,6 +41,7 @@
 - 清除按钮：`DIconButton(QStyle::SP_LineEditClearButton)`，16x16，点击清空文本，可见性跟随文本非空
 - 6px 间距：容器内 `QHBoxLayout`（contentsMargins=0, spacing=0），`addWidget(label)` + `addSpacing(6)` + `addWidget(clearButton)`
 - label 右边缘距清除按钮左侧 = 6px（由 spacer 保证）
+- 容器加入方式：`QLineEdit::addAction(QWidgetAction(container), QLineEdit::TrailingPosition)`——容器**覆盖在输入框内部右侧**（与原内置清除按钮位置一致，不压缩文本区域）。注意：必须先 `setClearButtonEnabled(false)`，否则内置清除按钮会排在 TrailingPosition action 的右侧，导致顺序错乱。**不能用 `DLineEdit::setRightWidgets`**——后者会把容器挤到文本区域之外，压缩文本可用宽度，不符合"在输入框里面"的视觉诉求。
 
 ## 4. 架构
 
@@ -127,7 +128,7 @@ QLabel setText("第5/10项")；total==0 时 hide
 - 创建 `m_matchCountLabel`，默认 `hide()`
 - 创建 `m_clearButton`（`DIconButton(QStyle::SP_LineEditClearButton)`，16x16，NoFocus），默认 `hide()`
 - 创建容器 `QWidget`，内部 `QHBoxLayout`（contentsMargins=0, spacing=0）依次 `addWidget(label)` + `addSpacing(6)` + `addWidget(clearButton)`
-- `setRightWidgets({container})`
+- 容器包进 `QWidgetAction`，调用 `lineEdit()->addAction(action, QLineEdit::TrailingPosition)`——容器覆盖在输入框内部右侧（与原内置清除按钮位置一致，不压缩文本区域）。**不能用 `setRightWidgets`**——后者会压缩文本区域，不符合"在输入框里面"的视觉
 - 清除按钮 clicked → `lineEdit()->clear()`；可见性由 `handleTextChanged` 跟随文本非空控制
 
 #### FindBar（被动更新）
