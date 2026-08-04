@@ -191,11 +191,46 @@ TEST_F(test_replacebar, keyPressEvent)
     rep->keyPressEvent(e2);
 
     EXPECT_EQ(rep->m_replaceRestButton->hasFocus(),false);
-    delete e2; e2=nullptr;
+    delete e2; e2 = nullptr;
 
 
     EXPECT_NE(rep,nullptr);
     rep->deleteLater();
 
     
+}
+
+//slotUpdateMatchCount 只更新 m_replaceLine，不更新 m_withLine
+TEST_F(test_replacebar, slotUpdateMatchCount_OnlyReplaceLine)
+{
+    ReplaceBar *replaceBar = new ReplaceBar();
+    replaceBar->m_replaceLine->m_matchCountLabel->hide();
+    replaceBar->m_withLine->m_matchCountLabel->show();
+
+    replaceBar->slotUpdateMatchCount(5, 10);
+
+    EXPECT_EQ(replaceBar->m_replaceLine->m_matchCountLabel->text().toStdString(), "第5/10项");
+    // Visibility adapted for headless test env: isVisible() is unreliable; use isHidden() (see Task 3 & 4 lesson)
+    EXPECT_FALSE(replaceBar->m_replaceLine->m_matchCountLabel->isHidden());
+    // m_withLine must NEVER be touched by the slot. isVisible() kept here (per brief): in headless env,
+    // a child widget whose parent chain has no visible top-level window reports isVisible()=false even
+    // after show(); this is exactly the "NOT shown" state we want to assert. isHidden() would be FALSE
+    // (because the test setup called show() on it) and cannot be used here.
+    EXPECT_FALSE(replaceBar->m_withLine->m_matchCountLabel->isVisible());
+
+    replaceBar->deleteLater();
+}
+
+//slotUpdateMatchCount (0,0) 隐藏 m_replaceLine
+TEST_F(test_replacebar, slotUpdateMatchCount_ZeroHide)
+{
+    ReplaceBar *replaceBar = new ReplaceBar();
+    replaceBar->m_replaceLine->m_matchCountLabel->show();
+
+    replaceBar->slotUpdateMatchCount(0, 0);
+
+    // Visibility adapted for headless test env: isVisible() is unreliable; use isHidden() (see Task 3 & 4 lesson)
+    EXPECT_TRUE(replaceBar->m_replaceLine->m_matchCountLabel->isHidden());
+
+    replaceBar->deleteLater();
 }
