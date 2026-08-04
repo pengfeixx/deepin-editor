@@ -9,13 +9,14 @@
 #include <DFontSizeManager>
 
 #include <QDebug>
+#include <QGraphicsOpacityEffect>
 
 // 不同布局模式(紧凑)
 const int s_nLineBarHeight = 36;
 const int s_nLineBarHeightCompact = 24;
 
 // 计数 label 与自绘清除按钮的布局参数（像素）
-const int s_nClearButtonSize = 16;     // 自绘清除按钮尺寸
+const int s_nClearButtonSize = 22;     // 自绘清除按钮尺寸
 const int s_nLabelButtonSpacing = 6;   // label 与清除按钮之间的间距
 const int s_nRightMargin = 6;          // 清除按钮右边缘距输入框右边缘的间距
 
@@ -34,10 +35,13 @@ LineBar::LineBar(DLineEdit *parent)
 
     // label 和清除按钮直接 parent 到内嵌 lineEdit，覆盖在输入框内部
     m_matchCountLabel = new QLabel(lineEdit());
-    int fontsize = DFontSizeManager::instance()->fontPixelSize(DFontSizeManager::T11);
+    int fontsize = DFontSizeManager::instance()->fontPixelSize(DFontSizeManager::T9);
     QFont labelFont = m_matchCountLabel->font();
     labelFont.setPixelSize(fontsize);
     m_matchCountLabel->setFont(labelFont);
+    QGraphicsOpacityEffect *opacityEffect = new QGraphicsOpacityEffect(m_matchCountLabel);
+    opacityEffect->setOpacity(0.7);
+    m_matchCountLabel->setGraphicsEffect(opacityEffect);
     m_matchCountLabel->hide();
 
     m_clearButton = new DIconButton(QStyle::SP_LineEditClearButton, lineEdit());
