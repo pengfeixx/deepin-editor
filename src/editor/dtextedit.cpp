@@ -8431,7 +8431,7 @@ void TextEdit::keyPressEvent(QKeyEvent *e)
         }
 
         //列编辑 删除撤销重做
-        if (modifiers == Qt::NoModifier && (e->key() == Qt::Key_Backspace)) {
+        if ((modifiers == Qt::NoModifier || modifiers == Qt::ShiftModifier) && e->key() == Qt::Key_Backspace) {
             flushDeferredCursorUpdate();
             if (m_isSelectAll)
                 QPlainTextEdit::selectAll();
